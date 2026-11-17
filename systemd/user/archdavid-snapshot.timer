@@ -1,0 +1,11 @@
+[Unit]
+Description=archdavid: snapshot local semanal
+
+[Timer]
+OnCalendar=Mon 04:00
+RandomizedDelaySec=10m
+Persistent=true
+Unit=archdavid-snapshot.service
+
+[Install]
+WantedBy=timers.target

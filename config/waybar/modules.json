@@ -1,0 +1,91 @@
+{
+    "custom/arch": {
+
+        "tooltip": true,
+        "tooltip-format": "Made with 𖹭 \n ~shivam"
+    },
+
+    "hyprland/workspaces": {
+        "disable-scroll": true,
+        "all-outputs": true,
+        "format": "{name}"
+    },
+
+    "hyprland/window":{
+        "format": "   {}"
+    },
+
+    "pulseaudio": {
+        "format": "{icon} {volume}%",
+        "max-volume": 150,
+        "scroll-step": 5,
+        "format-muted": "󰖁 {volume}%",
+        "format-icons": {
+            "default": ["󰕿", "󰖀", "󰕾"]
+        },
+        "on-click": "~/.config/waybar/scripts/audio-menu.sh",
+        "on-click-right": "pavucontrol"
+    },
+
+
+    "bluetooth": {
+        "format": "",
+        "tooltip": true,
+        "tooltip-format": "{status}",
+        "on-click": "~/.config/waybar/scripts/bt-menu.sh"
+    },
+
+    "network": {
+        "format-wifi": " {essid}" ,
+        "tooltip": true,
+        "tooltip-format": "SSID: {essid}\nSignal: {signalStrength}%\nSpeed: {bandwidthDownBits} ↓ / {bandwidthUpBits} ↑",
+        "format-ethernet": "",
+        "format-disconnected": "⚠",
+        "interval": 2,
+        "on-click": "networkmanager_dmenu"
+    },
+
+
+    "cpu": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "memory": {
+        "format": "",
+        "tooltip": false
+    },
+
+    "battery": {
+        "states": {
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{icon} {capacity}%",
+        "format-charging": " {capacity}%",
+        "format-plugged": " {capacity}%",
+        "format-icons": ["", "", "", "", ""],
+        
+
+        "on-click": "~/.config/waybar/scripts/power-profiles.sh"
+    },
+
+    "clock": {
+        "format": " {:%H:%M}",
+        "tooltip-format": " {:%e %B}"
+    },
+
+
+    "custom/panel": {
+        "format": "\uf0c9",
+        "tooltip": true,
+        "tooltip-format": "Panel de control  (SUPER+A)",
+        "on-click": "~/.config/theme-switcher/panel-toggle.sh"
+    },
+
+    "custom/power": {
+        "format": "",
+        "tooltip": false,
+        "on-click": "~/.config/waybar/scripts/powermenu.sh"
+    }
+}

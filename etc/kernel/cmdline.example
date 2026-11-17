@@ -1,0 +1,5 @@
+# cmdline de ejemplo para systemd-boot / UKI.
+# En cada equipo se genera con:
+#   root=UUID=$(findmnt -no UUID /)
+#
+# root=UUID=<root-uuid> zswap.enabled=0 rw rootfstype=ext4 quiet splash

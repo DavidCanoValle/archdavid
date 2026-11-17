@@ -1,0 +1,8 @@
+[Unit]
+Description=archdavid: update al último tag
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/share/archdavid/bin/archdavid update
+Nice=10

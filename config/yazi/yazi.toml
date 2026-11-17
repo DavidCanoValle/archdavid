@@ -1,0 +1,10 @@
+[mgr]
+show_hidden = false
+[opener]
+edit = [
+    { run = 'nvim %s', block = true, desc = "Abrir con Neovim" }
+]
+[open]
+prepend_rules = [
+    { mime = "text/*", use = "edit" }
+]

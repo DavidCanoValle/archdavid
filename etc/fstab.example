@@ -1,0 +1,5 @@
+# fstab de ejemplo. NO se copia: en cada equipo se genera con:
+#   genfstab -U / >> /etc/fstab
+#
+# UUID=<root-uuid>  /      ext4  rw,relatime  0 1
+# UUID=<boot-uuid>  /boot  vfat  rw,relatime,fmask=0077,dmask=0077  0 2

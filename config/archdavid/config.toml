@@ -1,0 +1,23 @@
+# Configuración de archdavid
+role = "target"            # origin (publica) | target (consume)
+branch = "main"
+
+[release]
+day = 1                    # día del mes en que el origen publica
+hour = 4
+jitter = "30m"
+
+[snapshot]
+weekday = "Mon"            # commit local semanal del origen (sin push)
+hour = 4
+
+[update]
+day = 3                    # día del mes en que los destinos actualizan
+hour = 4
+jitter = "30m"
+packages = false           # los updates NUNCA tocan paquetes
+reload = "ask"             # ask | auto | notify
+
+[checks]
+gitleaks = true
+shellcheck = true

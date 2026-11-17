@@ -1,0 +1,28 @@
+# Secretos y credenciales
+secrets.zsh
+config/zsh/secrets.zsh
+config/gh/
+**/hosts.yml
+.claude.json
+**/auth.json
+
+# Estado / runtime que no debe versionarse
+*.log
+*.bak.*
+*.tmp
+*.swp
+*~
+config/theme-switcher/current
+config/theme-switcher/current-name
+config/theme-switcher/panel.json
+**/node_modules/
+**/.cache/
+**/.local/
+**/zcompdump*
+**/.zsh_history
+**/.bash_history
+
+# Fondos y binarios pesados (se distribuyen aparte)
+wallpapers/
+.wallpapers/
+*.AppImage

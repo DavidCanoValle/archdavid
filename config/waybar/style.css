@@ -1,0 +1,150 @@
+/* ================================================= */
+/* Waybar Minimal Pill Style Bar                     */
+/* made by shivam (github.com/shivam-salkar)         */
+/* ================================================= */
+
+@import "colors.css";
+
+* {
+    font-family: "JetbrainsMono Nerd Font", FontAwesome, Roboto, Helvetica, Arial, sans-serif;
+    font-size: 17px;
+    transition: background-color .3s ease-out, color .3s ease-out, box-shadow .3s ease-out, border-radius .3s ease-out;
+}
+
+/* Main Waybar window (transparent, pills handle bg) */
+window#waybar {
+    background: transparent;
+    color: @text; /* main foreground text */
+    font-family:
+        SpaceMono Nerd Font,
+        feather;
+    transition: background-color .5s;
+}
+
+/* Containers for left / center / right modules */
+.modules-left,
+.modules-center,
+.modules-right {
+    background: @panel; /* dark navy pill background */
+    margin: 5px 10px;
+    padding: 0 5px;
+    border-radius: 100px;
+    transition: background-color .4s ease-out, box-shadow .4s ease-out;
+}
+
+.modules-left {
+    padding: 0;
+}
+
+.modules-center {
+    padding: 0 10px;
+}
+
+/* Shared styling for most modules */
+#clock,
+#battery,
+#cpu,
+#memory,
+#disk,
+#temperature,
+#backlight,
+#network,
+#pulseaudio,
+#wireplumber,
+#custom-media,
+#tray,
+#mode,
+#idle_inhibitor,
+#scratchpad,
+#power-profiles-daemon,
+#language,
+#mpd,
+#bluetooth,
+#custom-sysmon,
+#custom-power,
+#custom-panel {
+    padding: 0 10px;
+    border-radius: 100px;
+}
+
+/* Hover effect for modules */
+#clock:hover,
+#battery:hover,
+#cpu:hover,
+#memory:hover,
+#disk:hover,
+#temperature:hover,
+#backlight:hover,
+#network:hover,
+#pulseaudio:hover,
+#wireplumber:hover,
+#custom-media:hover,
+#tray:hover,
+#mode:hover,
+#idle_inhibitor:hover,
+#scratchpad:hover,
+#power-profiles-daemon:hover,
+#language:hover,
+#mpd:hover,
+#bluetooth:hover,
+#custom-sysmon:hover,
+#custom-power:hover,
+#custom-panel:hover {
+    background: @panel2; /* slightly lighter on hover */
+    color: @accent;
+    box-shadow: inset 0 -2px 0 0 @accent;
+}
+
+/* Workspace buttons */
+#workspaces button {
+    background: transparent;
+    font-family:
+        SpaceMono Nerd Font,
+        feather;
+    font-weight: 900;
+    font-size: 13pt;
+    color: @text; /* inactive workspace text */
+    border: none;
+    border-radius: 100px;
+}
+
+/* Active workspace pill */
+#workspaces button.active {
+    background: @accent; /* color de acento del tema */
+    color: @bg;          /* texto oscuro para contraste */
+    box-shadow: none;    /* sin glow: se recortaba en el borde del modulo */
+}
+
+/* Hovered workspace */
+#workspaces button:hover {
+    background: @accent;
+    color: @bg;
+    box-shadow: none;
+}
+
+/* Arch logo module */
+#custom-arch {
+    margin-left: 5px;
+    padding: 0 10px;
+    font-size: 25px;
+    transition: color .5s;
+}
+
+#custom-arch:hover {
+    color: @accent; /* blue accent */
+}
+
+/* ===================== */
+/* Extra modules         */
+/* ===================== */
+
+/* System monitor icon */
+#custom-sysmon {
+    font-size: 17px;
+}
+
+/* Power button */
+#custom-power {
+    font-size: 17px;
+    color: @warning; /* soft red */
+}

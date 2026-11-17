@@ -1,0 +1,11 @@
+[Unit]
+Description=archdavid: update mensual (destino)
+
+[Timer]
+OnCalendar=*-*-03 04:00:00
+RandomizedDelaySec=30m
+Persistent=true
+Unit=archdavid-update.service
+
+[Install]
+WantedBy=timers.target

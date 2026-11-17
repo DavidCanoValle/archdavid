@@ -1,0 +1,12 @@
+bluetooth.service
+cups.service
+cups.socket
+cups.path
+docker.service
+NetworkManager.service
+NetworkManager-dispatcher.service
+NetworkManager-wait-online.service
+sddm.service
+systemd-timesyncd.service
+tuned.service
+fstrim.timer

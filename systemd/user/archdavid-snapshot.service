@@ -1,0 +1,8 @@
+[Unit]
+Description=archdavid: snapshot local (sin push)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/share/archdavid/bin/archdavid snapshot
+Nice=10

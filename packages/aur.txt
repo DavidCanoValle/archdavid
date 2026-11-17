@@ -1,0 +1,10 @@
+apple_cursor
+bibata-cursor-theme
+cursor-bin
+google-chrome
+neofetch
+opencode-bin
+sddm-astronaut-theme
+spotify
+vscodium-bin
+vscodium-bin-marketplace

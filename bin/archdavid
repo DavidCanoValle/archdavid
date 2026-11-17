@@ -1,0 +1,392 @@
+#!/usr/bin/env bash
+set -eEo pipefail
+
+SELF="$(readlink -f "${BASH_SOURCE[0]:-$0}")"
+SELF_DIR="$(dirname "$SELF")"
+ARCHDAVID_PATH="${ARCHDAVID_PATH:-$(cd "$SELF_DIR/.." && pwd)}"
+export ARCHDAVID_PATH
+ARCHDAVID_INSTALL="$ARCHDAVID_PATH/install"
+export ARCHDAVID_INSTALL
+export PATH="$ARCHDAVID_PATH/bin:$PATH"
+: "${ARCHDAVID_DRY_RUN:=0}"
+export ARCHDAVID_DRY_RUN
+
+# shellcheck source=/dev/null
+source "$ARCHDAVID_INSTALL/helpers/all.sh"
+# shellcheck source=/dev/null
+source "$ARCHDAVID_INSTALL/config/all.sh"
+
+usage() {
+  cat <<'EOF'
+archdavid — distribución Arch + Hyprland
+
+Uso: archdavid <comando> [args]
+
+Comandos:
+  version             Muestra la versión (CalVer YYYY.MM)
+  doctor              Diagnóstico del sistema y del repo
+  snapshot            Commit local (sin push). Origen.
+  release [YYYY.MM]   Crea versión, tag y push a main. Origen.
+  update              Actualiza al último tag. Destino.
+  reload              Recarga Hyprland/Waybar/kitty/nvim
+  autosync <accion>   enable|disable|status [--role origin|target]
+  theme <id>          Aplica un tema (theme-switcher)
+  pkg-add <pkg...>    Instala paquetes (manual)
+  pkg-remove <pkg...> Elimina paquetes (manual)
+  install [opciones]  Ejecuta install.sh
+  help                Esta ayuda
+EOF
+}
+
+archdavid_repo_version() {
+  cat "$ARCHDAVID_PATH/version" 2>/dev/null || echo "0"
+}
+
+detect_bootloader() {
+  if [[ -f /etc/default/grub ]] && command -v grub-mkconfig >/dev/null 2>&1; then
+    printf 'grub'
+    return 0
+  fi
+  if command -v bootctl >/dev/null 2>&1 && bootctl is-installed >/dev/null 2>&1; then
+    printf 'systemd-boot'
+    return 0
+  fi
+  printf 'unknown'
+}
+
+cmd_version() {
+  archdavid_repo_version
+}
+
+cmd_doctor() {
+  log "archdavid doctor"
+  printf '  versión:     %s\n' "$(archdavid_repo_version)"
+  printf '  ruta:        %s\n' "$ARCHDAVID_PATH"
+  printf '  bootloader:  %s\n' "$(detect_bootloader)"
+  local role
+  role="$(cat "$(archdavid_state_dir)/role" 2>/dev/null || echo "sin definir")"
+  printf '  rol:         %s\n' "$role"
+
+  if git -C "$ARCHDAVID_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    local branch dirty
+    if git -C "$ARCHDAVID_PATH" rev-parse --verify -q HEAD >/dev/null 2>&1; then
+      branch="$(git -C "$ARCHDAVID_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    else
+      branch="(sin commits)"
+    fi
+    dirty="$(git -C "$ARCHDAVID_PATH" status --porcelain | wc -l)"
+    printf '  repo git:    sí (rama %s, cambios sin commit: %s)\n' "$branch" "$dirty"
+  else
+    printf '  repo git:    no\n'
+  fi
+
+  local s="$HOME/.config/zsh/secrets.zsh"
+  if [[ -f "$s" ]]; then
+    printf '  secretos:    %s (%s)\n' "$s" "$(stat -c '%A' "$s")"
+  else
+    printf '  secretos:    no creados\n'
+  fi
+
+  local c
+  for c in git yay hyprctl waybar rofi notify-send gitleaks shellcheck; do
+    if command -v "$c" >/dev/null 2>&1; then
+      printf '  %-12s %s\n' "$c" "$(command -v "$c")"
+    else
+      printf '  %-12s %s\n' "$c" "no"
+    fi
+  done
+
+  if systemctl --user list-timers 'archdavid-*' --no-pager >/dev/null 2>&1; then
+    systemctl --user list-timers 'archdavid-*' --no-pager 2>/dev/null | sed 's/^/  /'
+  fi
+}
+
+cmd_snapshot() {
+  require_cmd git
+  git -C "$ARCHDAVID_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || die "no es un repo git: $ARCHDAVID_PATH"
+
+  archdavid_secret_scan "$ARCHDAVID_PATH" || die "abortado: posibles secretos"
+
+  if archdavid_is_dry_run; then
+    log "DRY-RUN: git add -A && git commit"
+    return 0
+  fi
+
+  git -C "$ARCHDAVID_PATH" add -A
+  if git -C "$ARCHDAVID_PATH" diff --cached --quiet; then
+    ok "Sin cambios para el snapshot"
+    return 0
+  fi
+  git -C "$ARCHDAVID_PATH" commit -m "snapshot: $(uname -n) $(date -Iseconds)"
+  ok "Snapshot local creado"
+}
+
+cmd_release() {
+  require_cmd git
+  local v="${1:-$(date +%Y.%m)}"
+  [[ "$v" =~ ^[0-9]{4}\.[0-9]{2}$ ]] || die "versión inválida: $v (usa YYYY.MM)"
+  git -C "$ARCHDAVID_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || die "no es un repo git: $ARCHDAVID_PATH"
+
+  archdavid_secret_scan "$ARCHDAVID_PATH" || die "abortado: posibles secretos"
+
+  if command -v shellcheck >/dev/null 2>&1; then
+    log "shellcheck sobre el repo"
+    find "$ARCHDAVID_PATH" -name '*.sh' -not -path '*/.git/*' -print0 \
+      | xargs -0 -r shellcheck || die "shellcheck falló"
+  else
+    warn "shellcheck no instalado; se omite"
+  fi
+
+  if git -C "$ARCHDAVID_PATH" rev-parse -q --verify "refs/tags/v$v" >/dev/null; then
+    die "el tag v$v ya existe"
+  fi
+
+  if [[ -x "$ARCHDAVID_PATH/scripts/update-manifests.sh" ]]; then
+    run "$ARCHDAVID_PATH/scripts/update-manifests.sh"
+  fi
+
+  if archdavid_is_dry_run; then
+    log "DRY-RUN: version=$v, commit, tag v$v, push origin HEAD:main y push tag"
+    return 0
+  fi
+
+  printf '%s\n' "$v" >"$ARCHDAVID_PATH/version"
+  git -C "$ARCHDAVID_PATH" add -A
+  if ! git -C "$ARCHDAVID_PATH" diff --cached --quiet; then
+    git -C "$ARCHDAVID_PATH" commit -m "release: v$v"
+  fi
+  git -C "$ARCHDAVID_PATH" tag -a "v$v" -m "archdavid v$v"
+  git -C "$ARCHDAVID_PATH" push origin HEAD:main
+  git -C "$ARCHDAVID_PATH" push origin "v$v"
+  printf '%s\n' "$v" >"$(archdavid_state_dir)/last-version"
+  ok "Release v$v publicada"
+}
+
+archdavid_run_migrations() {
+  local from="${1#v}"
+  local to="${2#v}"
+  local f base
+  [[ -d "$ARCHDAVID_PATH/migrations" ]] || return 0
+  for f in "$ARCHDAVID_PATH"/migrations/*.sh; do
+    [[ -e "$f" ]] || continue
+    base="$(basename "$f" .sh)"
+    if [[ "$base" > "$from" ]]; then
+      log "Migración: $base (objetivo $to)"
+      run bash "$f"
+    fi
+  done
+}
+
+cmd_update() {
+  require_cmd git
+  git -C "$ARCHDAVID_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+    || die "no es un repo git: $ARCHDAVID_PATH"
+
+  if [[ -n "$(git -C "$ARCHDAVID_PATH" status --porcelain)" ]]; then
+    die "árbol de trabajo sucio; haz commit o 'archdavid snapshot' antes de actualizar"
+  fi
+
+  run git -C "$ARCHDAVID_PATH" fetch --tags --prune
+
+  local latest
+  latest="$(git -C "$ARCHDAVID_PATH" tag -l 'v*' --sort=-v:refname | head -n1)"
+  [[ -n "$latest" ]] || die "no hay releases (tags v*) todavía"
+
+  local state last_file last
+  state="$(archdavid_state_dir)"
+  last_file="$state/last-version"
+  last="$(cat "$last_file" 2>/dev/null || echo none)"
+  if [[ "$last" == "${latest#v}" ]]; then
+    ok "Ya estás en $latest"
+    return 0
+  fi
+
+  run git -C "$ARCHDAVID_PATH" checkout "$latest"
+  archdavid_run_migrations "$last" "${latest#v}"
+  if ! archdavid_is_dry_run; then
+    printf '%s\n' "${latest#v}" >"$last_file"
+  fi
+  ok "Actualizado a $latest"
+  archdavid_relink
+  archdavid_ask_reload
+}
+
+cmd_reload() {
+  if command -v hyprctl >/dev/null 2>&1; then
+    run hyprctl reload
+  fi
+  if command -v waybar >/dev/null 2>&1 && pgrep -x waybar >/dev/null 2>&1; then
+    if [[ -x "$HOME/.config/waybar/scripts/launch.sh" ]]; then
+      run "$HOME/.config/waybar/scripts/launch.sh"
+    else
+      run pkill -SIGUSR2 waybar
+    fi
+  fi
+  pkill -SIGUSR1 -x kitty >/dev/null 2>&1 || true
+  pkill -SIGUSR1 -x nvim >/dev/null 2>&1 || true
+  if ! archdavid_is_dry_run; then
+    rm -f "$(archdavid_state_dir)/pending-reload"
+  fi
+  ok "Recarga solicitada"
+}
+
+archdavid_ask_reload() {
+  local mode="${ARCHDAVID_RELOAD:-ask}"
+  local state
+  state="$(archdavid_state_dir)"
+
+  case "$mode" in
+    auto)
+      cmd_reload
+      return
+      ;;
+    notify)
+      if ! archdavid_is_dry_run; then
+        printf 'reload\n' >"$state/pending-reload"
+      fi
+      if command -v notify-send >/dev/null 2>&1; then
+        notify-send "archdavid" "Actualizado. Ejecuta: archdavid reload"
+      fi
+      return
+      ;;
+  esac
+
+  if [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] && command -v rofi >/dev/null 2>&1; then
+    local choice
+    choice="$(printf 'Recargar ahora\nMás tarde\n' \
+      | rofi -dmenu -p 'archdavid actualizado' -lines 2 2>/dev/null || true)"
+    if [[ "$choice" == "Recargar ahora" ]]; then
+      cmd_reload
+      return
+    fi
+  fi
+
+  if ! archdavid_is_dry_run; then
+    printf 'reload\n' >"$state/pending-reload"
+  fi
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "archdavid" "Actualizado. Recarga con: archdavid reload"
+  fi
+}
+
+cmd_autosync() {
+  local action="${1:-status}"
+  if (( $# > 0 )); then
+    shift
+  fi
+
+  local role="${ARCHDAVID_ROLE:-}"
+  while (( $# > 0 )); do
+    case "$1" in
+      --role)
+        shift
+        [[ $# -gt 0 ]] || die "--role requiere un valor"
+        role="$1"
+        ;;
+      --role=*)
+        role="${1#*=}"
+        ;;
+      *)
+        die "argumento desconocido: $1"
+        ;;
+    esac
+    shift
+  done
+
+  local unit_dir="$HOME/.config/systemd/user"
+  local units=(
+    archdavid-snapshot.service archdavid-snapshot.timer
+    archdavid-release.service archdavid-release.timer
+    archdavid-update.service archdavid-update.timer
+  )
+
+  case "$action" in
+    status)
+      systemctl --user list-timers 'archdavid-*' --no-pager 2>/dev/null || true
+      ;;
+    disable)
+      run systemctl --user disable --now \
+        archdavid-snapshot.timer archdavid-release.timer archdavid-update.timer \
+        2>/dev/null || true
+      if ! archdavid_is_dry_run; then
+        rm -f "$(archdavid_state_dir)/role"
+      fi
+      ok "Timers de archdavid desactivados"
+      ;;
+    enable)
+      [[ "$role" == "origin" || "$role" == "target" ]] \
+        || die "rol inválido: '${role:-}' (origin|target)"
+      run mkdir -p "$unit_dir"
+      local unit
+      for unit in "${units[@]}"; do
+        if [[ -f "$ARCHDAVID_PATH/systemd/user/$unit" ]]; then
+          run cp -f "$ARCHDAVID_PATH/systemd/user/$unit" "$unit_dir/$unit"
+        fi
+      done
+      run systemctl --user daemon-reload
+      if [[ "$role" == "origin" ]]; then
+        run systemctl --user enable --now archdavid-snapshot.timer archdavid-release.timer
+        run systemctl --user disable --now archdavid-update.timer 2>/dev/null || true
+      else
+        run systemctl --user enable --now archdavid-update.timer
+        run systemctl --user disable --now \
+          archdavid-snapshot.timer archdavid-release.timer 2>/dev/null || true
+      fi
+      if ! archdavid_is_dry_run; then
+        printf '%s\n' "$role" >"$(archdavid_state_dir)/role"
+      fi
+      ok "autosync activado (rol: $role)"
+      ;;
+    *)
+      die "acción inválida: $action (enable|disable|status)"
+      ;;
+  esac
+}
+
+cmd_theme() {
+  local apply="$HOME/.config/theme-switcher/theme-apply.sh"
+  [[ -n "${1:-}" ]] || die "uso: archdavid theme <id>"
+  [[ -x "$apply" ]] || die "theme-switcher no instalado todavía (Fase 4)"
+  run "$apply" "$1"
+}
+
+cmd_pkg_add() {
+  [[ $# -gt 0 ]] || die "uso: archdavid pkg-add <paquete...>"
+  require_cmd yay
+  run yay -S --needed "$@"
+}
+
+cmd_pkg_remove() {
+  [[ $# -gt 0 ]] || die "uso: archdavid pkg-remove <paquete...>"
+  require_cmd yay
+  run yay -Rns "$@"
+}
+
+main() {
+  local cmd="${1:-help}"
+  if (( $# > 0 )); then
+    shift
+  fi
+
+  case "$cmd" in
+    version) cmd_version ;;
+    doctor) cmd_doctor ;;
+    snapshot) cmd_snapshot ;;
+    release) cmd_release "$@" ;;
+    update) cmd_update ;;
+    reload) cmd_reload ;;
+    autosync) cmd_autosync "$@" ;;
+    theme) cmd_theme "$@" ;;
+    pkg-add) cmd_pkg_add "$@" ;;
+    pkg-remove) cmd_pkg_remove "$@" ;;
+    install) exec "$ARCHDAVID_PATH/install.sh" "$@" ;;
+    help | -h | --help) usage ;;
+    *)
+      die "comando desconocido: $cmd (usa: archdavid help)"
+      ;;
+  esac
+}
+
+main "$@"

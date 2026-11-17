@@ -1,0 +1,34 @@
+# archdavid config.manifest
+#
+# Formato: <modo> <ruta-en-config> <destino-relativo-al-HOME>
+#   modo: dir | file
+#
+# Las líneas vacías y las que empiezan por # se ignoran.
+
+# --- Directorios de ~/.config ---
+dir  nvim                   .config/nvim
+dir  kitty                  .config/kitty
+dir  hypr                   .config/hypr
+dir  waybar                 .config/waybar
+dir  quickshell             .config/quickshell
+dir  rofi                   .config/rofi
+dir  theme-switcher         .config/theme-switcher
+dir  yazi                   .config/yazi
+dir  mpv                    .config/mpv
+dir  neofetch               .config/neofetch
+dir  gtk-3.0                .config/gtk-3.0
+dir  gtk-4.0                .config/gtk-4.0
+dir  nwg-look               .config/nwg-look
+dir  xsettingsd             .config/xsettingsd
+dir  networkmanager-dmenu   .config/networkmanager-dmenu
+dir  yay                    .config/yay
+
+# --- Ficheros de ~/.config ---
+file mimeapps.list          .config/mimeapps.list
+file dolphinrc              .config/dolphinrc
+file filetypesrc            .config/filetypesrc
+file opencode/opencode.jsonc .config/opencode/opencode.jsonc
+
+# --- Ficheros del HOME ---
+file zsh/zshrc              .zshrc
+file zsh/p10k.zsh           .p10k.zsh

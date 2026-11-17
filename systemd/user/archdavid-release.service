@@ -1,0 +1,8 @@
+[Unit]
+Description=archdavid: release mensual (commit + tag + push)
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/share/archdavid/bin/archdavid release
+Nice=10

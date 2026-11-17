@@ -1,0 +1,71 @@
+@import "palette.rasi"
+
+* {
+    background-color: transparent;
+    text-color: @foreground;
+    font: "JetBrainsMono Nerd Font 12";
+    margin: 0;
+    padding: 0;
+    border: 0;
+    spacing: 0;
+}
+
+window {
+    background-color: @background;
+    border: 1px;
+    border-color: @border;
+    border-radius: 18px;
+    width: 420px;
+    padding: 10px 6px;
+}
+
+inputbar {
+    background-color: @background-alt;
+    border-radius: 12px;
+    margin: 0 6px 8px 6px;
+    padding: 9px 12px;
+    spacing: 8px;
+}
+
+prompt {
+    text-color: @accent;
+}
+
+entry {
+    text-color: @foreground;
+}
+
+listview {
+    lines: 10;
+    columns: 1;
+    spacing: 2px;
+    margin: 0 6px;
+    scrollbar: false;
+    dynamic: true;
+    fixed-height: false;
+}
+
+element {
+    padding: 9px 12px;
+    border-radius: 12px;
+}
+
+element selected {
+    background-color: @background-alt;
+}
+
+element active {
+    background-color: @background-alt;
+}
+
+element-text {
+    vertical-align: 0.5;
+}
+
+element-text selected {
+    text-color: @accent;
+}
+
+element-text active {
+    text-color: @accent;
+}

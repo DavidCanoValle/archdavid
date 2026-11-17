@@ -1,0 +1,4 @@
+[[manager.prepend_keymap]]
+on   = [ "u", "i" ]
+run  = "plugin mount"
+desc = "Abrir menú de montaje de discos"
