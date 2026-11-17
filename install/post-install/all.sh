@@ -43,5 +43,5 @@ EOF
     printf '%s\n' "$version" >"$state/installed-version" 2>/dev/null || true
   fi
 
-  ok "Fase 1 completada. Pendientes: paquetes (3), dotfiles (2/4), login (4)."
+  ok "Instalación completada. Reinicia sesión para aplicar el entorno."
 }
