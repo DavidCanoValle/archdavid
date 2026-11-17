@@ -14,4 +14,4 @@ jobs:
         with:
           scandir: "."
           additional_files: "install.sh bin/archdavid"
-          ignore_paths: "config/rofi"
+          ignore_paths: "config/rofi config/zsh"
