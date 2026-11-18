@@ -3,6 +3,7 @@
 import hashlib
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -12,6 +13,7 @@ W, H = 1920, 1080
 HOME = os.path.expanduser("~")
 ASSETS = os.path.join(HOME, ".cache", "theme-switcher", "assets")
 CACHE = os.path.join(HOME, ".cache", "theme-switcher", "cache")
+RENDER_CACHE = os.path.join(CACHE, "render")
 SDDM_TEMPLATE = "/usr/share/sddm/themes/sddm-astronaut-theme/Themes/david.conf"
 ARCH_LOGO = "/usr/share/pixmaps/archlinux-logo.png"
 
@@ -64,9 +66,25 @@ def vignette(w, h, strength=0.55):
     return black, mask
 
 
+_WALLS = {}
+_BLURS = {}
+
+
+def load_wallpaper(path):
+    img = _WALLS.get(path)
+    if img is None:
+        img = Image.open(path).convert("RGB")
+        _WALLS[path] = img
+    return img
+
+
 def blurred_wallpaper(path, blur=60, zoom=1.12):
-    wall = Image.open(path).convert("RGB")
-    return cover(wall, W, H, zoom).filter(ImageFilter.GaussianBlur(blur))
+    key = (path, blur, zoom)
+    cached = _BLURS.get(key)
+    if cached is None:
+        cached = cover(load_wallpaper(path), W, H, zoom).filter(ImageFilter.GaussianBlur(blur))
+        _BLURS[key] = cached
+    return cached
 
 
 def pf2_name(path):
@@ -189,6 +207,47 @@ message-bg-color: "{conf['BG']}"
 """
     with open(os.path.join(out, "theme.txt"), "w", encoding="utf-8") as fh:
         fh.write(theme)
+
+
+def build_logo(conf):
+    src = Image.open(ARCH_LOGO).convert("RGBA")
+    alpha = src.getchannel("A").point(lambda p: 255 if p > 128 else 0)
+    pw, ph = alpha.size
+    ap = alpha.load()
+    seen = set()
+    best = []
+    for sy in range(ph):
+        for sx in range(pw):
+            if ap[sx, sy] and (sx, sy) not in seen:
+                stack, comp = [(sx, sy)], []
+                seen.add((sx, sy))
+                while stack:
+                    cx, cy = stack.pop()
+                    comp.append((cx, cy))
+                    for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+                        if 0 <= nx < pw and 0 <= ny < ph and ap[nx, ny] and (nx, ny) not in seen:
+                            seen.add((nx, ny))
+                            stack.append((nx, ny))
+                if len(comp) > len(best):
+                    best = comp
+    mask_logo = Image.new("L", src.size, 0)
+    mp = mask_logo.load()
+    for cx, cy in best:
+        mp[cx, cy] = 255
+    logo = mask_logo.crop(mask_logo.getbbox())
+    target_h = 230
+    target_w = round(logo.width * target_h / logo.height)
+    logo = logo.resize((target_w, target_h), Image.Resampling.LANCZOS)
+    solid = Image.new("RGBA", logo.size, rgba(conf["TEXT"]))
+    solid.putalpha(logo)
+    glow = Image.new("RGBA", logo.size, rgba(conf["ACCENT"]))
+    glow.putalpha(logo.point(lambda p: int(p * 0.40)))
+    glow = glow.filter(ImageFilter.GaussianBlur(13))
+    canvas = 760
+    logo_img = Image.new("RGBA", (canvas, canvas), (0, 0, 0, 0))
+    logo_img.alpha_composite(glow, ((canvas - glow.width) // 2, (canvas - glow.height) // 2))
+    logo_img.alpha_composite(solid, ((canvas - solid.width) // 2, (canvas - solid.height) // 2))
+    return logo_img
 
 
 def render_plymouth(conf, out):
@@ -370,7 +429,7 @@ def sddm_video(wallpaper, out, tid):
 def render_sddm(conf, out):
     os.makedirs(out, exist_ok=True)
     tid = conf["ID"]
-    cover(Image.open(conf["WALLPAPER"]).convert("RGB"), W, H).save(
+    cover(load_wallpaper(conf["WALLPAPER"]), W, H).save(
         os.path.join(out, f"{tid}.jpg"), quality=92)
 
     video_ok = True
@@ -524,23 +583,157 @@ def render_user(conf, out):
         fh.write(f"ID={conf['ID']}\nNAME={conf['NAME']}\nACCENT={accent}\n")
 
 
+def render_plymouth_static(conf, out):
+    os.makedirs(out, exist_ok=True)
+    shutil.rmtree(os.path.join(out, "frames"), ignore_errors=True)
+
+    base = Image.new("RGB", (W, H), rgb(conf["BG"]))
+    wp = blurred_wallpaper(conf["WALLPAPER"], blur=70)
+    bg = Image.blend(base, wp, 0.20)
+    black, mask = vignette(W, H, 0.62)
+    bg = Image.composite(black, bg, mask)
+    bg.save(os.path.join(out, "background.png"))
+
+    build_logo(conf).save(os.path.join(out, "logo.png"))
+
+    with open(os.path.join(out, "david.plymouth"), "w", encoding="utf-8") as fh:
+        fh.write(f"""[Plymouth Theme]
+Name=David {conf['NAME']}
+Description=Splash estatico
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/david
+ScriptFile=/usr/share/plymouth/themes/david/david.script
+""")
+
+    script = """background.image = Image("background.png");
+background.sprite = Sprite(background.image);
+background.sprite.SetZ(0);
+background.last_width = 0;
+background.last_height = 0;
+
+logo.image = Image("logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetZ(10);
+tick = 0;
+
+fun refresh_callback()
+{
+    local w = Window.GetWidth();
+    local h = Window.GetHeight();
+    local x = Window.GetX();
+    local y = Window.GetY();
+
+    if (w != background.last_width || h != background.last_height)
+      {
+        background.image = Image("background.png").Scale(w, h);
+        background.sprite.SetImage(background.image);
+        background.last_width = w;
+        background.last_height = h;
+        background.sprite.SetX(x);
+        background.sprite.SetY(y);
+      }
+
+    local cx = x + w / 2;
+    local cy = y + h * 0.40;
+
+    logo.sprite.SetX(cx - logo.image.GetWidth() / 2);
+    logo.sprite.SetY(cy - logo.image.GetHeight() / 2);
+
+    tick = tick + 1;
+    if (tick < 40)
+      {
+        logo.sprite.SetOpacity(tick * 0.025);
+      }
+    else
+      {
+        logo.sprite.SetOpacity(1);
+      }
+}
+
+Plymouth.SetRefreshFunction(refresh_callback);
+"""
+    with open(os.path.join(out, "david.script"), "w", encoding="utf-8") as fh:
+        fh.write(script)
+
+
+def file_sha1(path):
+    h = hashlib.sha1()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()[:12]
+
+
+def render_key(conf_path, conf):
+    return f"{conf['ID']}-{file_sha1(conf['WALLPAPER'])}-{file_sha1(conf_path)}"
+
+
+def _complete(path):
+    return os.path.isdir(path) and os.path.exists(os.path.join(path, ".complete"))
+
+
+def cached_render(mode, conf_path, conf, out, render_fn, refresh=False):
+    key = os.path.join(RENDER_CACHE, f"{render_key(conf_path, conf)}-{mode}")
+    if not refresh and _complete(key):
+        shutil.copytree(key, out, dirs_exist_ok=True)
+        print(f"cache hit: {mode} {key}")
+        return
+
+    tmp = f"{key}.tmp.{os.getpid()}"
+    shutil.rmtree(tmp, ignore_errors=True)
+    os.makedirs(tmp, exist_ok=True)
+    render_fn(tmp)
+    with open(os.path.join(tmp, ".complete"), "w", encoding="utf-8") as fh:
+        fh.write("ok\n")
+    shutil.rmtree(key, ignore_errors=True)
+    os.replace(tmp, key)
+    shutil.copytree(key, out, dirs_exist_ok=True)
+    print(f"render+cache: {mode} {key}")
+
+
+def render_system(conf, out):
+    render_grub(conf, os.path.join(out, "grub"))
+    render_sddm(conf, os.path.join(out, "sddm"))
+
+
+MODES = ("user", "system", "plymouth", "all")
+
+
 def main():
     os.umask(0o022)
-    if len(sys.argv) != 3:
-        sys.exit("uso: render.py <tema.conf> <dir-salida>")
-    conf = load_conf(sys.argv[1])
+    args = sys.argv[1:]
+    refresh = "--refresh" in args
+    args = [a for a in args if a != "--refresh"]
+
+    if len(args) == 3 and args[0] in MODES:
+        mode, conf_path, out = args
+    elif len(args) == 2:
+        mode, conf_path, out = "all", args[0], args[1]
+    else:
+        sys.exit("uso: render.py [user|system|plymouth|all] <tema.conf> <dir-salida> [--refresh]")
+
+    conf = load_conf(conf_path)
     for key in ("ID", "NAME", "BG", "PANEL", "PANEL2", "BORDER", "ACCENT", "TEXT", "DIM", "WARN", "WALLPAPER"):
         if key not in conf:
-            sys.exit(f"falta {key} en {sys.argv[1]}")
+            sys.exit(f"falta {key} en {conf_path}")
     if not os.path.isfile(conf["WALLPAPER"]):
         sys.exit(f"no existe el fondo: {conf['WALLPAPER']}")
-    out = sys.argv[2]
+
     os.makedirs(out, exist_ok=True)
-    render_grub(conf, os.path.join(out, "grub"))
-    render_plymouth(conf, os.path.join(out, "plymouth"))
-    render_sddm(conf, os.path.join(out, "sddm"))
-    render_user(conf, os.path.join(out, "user"))
-    print(f"render ok: {conf['NAME']} -> {out}")
+
+    if mode in ("user", "all"):
+        render_user(conf, os.path.join(out, "user"))
+    if mode in ("system", "all"):
+        cached_render("system", conf_path, conf, out,
+                      lambda d: render_system(conf, d), refresh)
+    if mode == "plymouth":
+        cached_render("plymouth", conf_path, conf, out,
+                      lambda d: render_plymouth_static(conf, os.path.join(d, "plymouth")), refresh)
+        shutil.rmtree(os.path.join(out, "plymouth", "frames"), ignore_errors=True)
+
+    print(f"render ok ({mode}): {conf['NAME']} -> {out}")
 
 
 if __name__ == "__main__":

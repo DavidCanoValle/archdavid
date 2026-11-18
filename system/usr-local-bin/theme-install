@@ -2,8 +2,18 @@
 set -euo pipefail
 umask 022
 
-STAGE="${1:-}"
-ID="${2:-}"
+PLYMOUTH=1
+args=()
+for a in "$@"; do
+  case "$a" in
+    --plymouth) PLYMOUTH=1 ;;
+    --no-plymouth) PLYMOUTH=0 ;;
+    *) args+=("$a") ;;
+  esac
+done
+
+STAGE="${args[0]:-}"
+ID="${args[1]:-}"
 RUN_USER="${SUDO_USER:-${USER}}"
 RUN_UID="$(id -u "$RUN_USER")"
 USER_HOME="$(getent passwd "$RUN_USER" | cut -d: -f6)"
@@ -18,23 +28,29 @@ if [[ "$REAL" != "$BASE/$ID" ]] || [[ ! -d "$REAL" ]]; then
   echo "staging invalido" >&2
   exit 3
 fi
-for req in grub/theme.txt plymouth/david.script "sddm/david.conf" "sddm/$ID.jpg"; do
+if [[ "$(stat -c %u "$REAL")" != "$RUN_UID" ]]; then
+  echo "propietario inesperado del staging" >&2
+  exit 5
+fi
+
+reqs=(grub/theme.txt "sddm/david.conf" "sddm/$ID.jpg")
+if (( PLYMOUTH )); then
+  reqs+=(plymouth/david.script plymouth/david.plymouth)
+fi
+for req in "${reqs[@]}"; do
   if [[ ! -f "$REAL/$req" ]]; then
     echo "falta $req" >&2
     exit 4
   fi
 done
-if [[ "$(stat -c %u "$REAL")" != "$RUN_UID" ]]; then
-  echo "propietario inesperado del staging" >&2
-  exit 5
-fi
 
 GRUB_DIR=/boot/grub/themes/david
 PLY_DIR=/usr/share/plymouth/themes/david
 SDDM_DIR=/usr/share/sddm/themes/sddm-astronaut-theme
 LOG=/var/log/archdavid-theme-install.log
 
-install -d -m 755 "$GRUB_DIR" "$PLY_DIR" "$PLY_DIR/frames" "$SDDM_DIR/Backgrounds"
+install -d -m 755 "$GRUB_DIR" "$SDDM_DIR/Themes" "$SDDM_DIR/Backgrounds"
+
 if [[ -f "$SDDM_DIR/Themes/david.conf" ]]; then
   cp -a "$SDDM_DIR/Themes/david.conf" "$SDDM_DIR/Themes/david.conf.bak"
 fi
@@ -43,25 +59,29 @@ rm -f "$GRUB_DIR"/sel_*.png "$GRUB_DIR"/tb_*.png "$GRUB_DIR"/th_*.png \
   "$GRUB_DIR"/*.pf2 "$GRUB_DIR/theme.txt" "$GRUB_DIR/background.jpg"
 cp -R "$REAL/grub/." "$GRUB_DIR/"
 
-rm -rf "${PLY_DIR:?}/frames"
-cp -R "$REAL/plymouth/." "$PLY_DIR/"
-
 cp "$REAL/sddm/david.conf" "$SDDM_DIR/Themes/david.conf"
 cp "$REAL/sddm/$ID.jpg" "$SDDM_DIR/Backgrounds/$ID.jpg"
 if [[ -f "$REAL/sddm/$ID.mp4" ]]; then
   cp "$REAL/sddm/$ID.mp4" "$SDDM_DIR/Backgrounds/$ID.mp4"
 fi
 
-plymouth-set-default-theme david
+chown -R root:root "$GRUB_DIR" "$SDDM_DIR/Themes/david.conf" "$SDDM_DIR/Backgrounds/$ID.jpg"
+chmod -R a+rX "$GRUB_DIR"
+chmod 644 "$GRUB_DIR"/* 2>/dev/null || true
 
-chown -R root:root "$GRUB_DIR" "$PLY_DIR" \
-  "$SDDM_DIR/Themes/david.conf" "$SDDM_DIR/Backgrounds/$ID.jpg"
-chmod -R a+rX "$GRUB_DIR" "$PLY_DIR"
-chmod 644 "$GRUB_DIR"/* "$PLY_DIR"/*.png "$PLY_DIR"/*.script "$PLY_DIR"/*.plymouth 2>/dev/null || true
+if (( PLYMOUTH )); then
+  install -d -m 755 "$PLY_DIR"
+  rm -rf "${PLY_DIR:?}/frames"
+  cp -R "$REAL/plymouth/." "$PLY_DIR/"
+  plymouth-set-default-theme david
+  chown -R root:root "$PLY_DIR"
+  chmod -R a+rX "$PLY_DIR"
+  chmod 644 "$PLY_DIR"/*.png "$PLY_DIR"/*.script "$PLY_DIR"/*.plymouth 2>/dev/null || true
 
-if ! mkinitcpio -P >"$LOG" 2>&1; then
-  echo "mkinitcpio fallo, revisa $LOG" >&2
-  exit 6
+  if ! mkinitcpio -P >"$LOG" 2>&1; then
+    echo "mkinitcpio fallo, revisa $LOG" >&2
+    exit 6
+  fi
 fi
 
-echo "tema $ID instalado"
+echo "tema $ID instalado (plymouth=$PLYMOUTH)"

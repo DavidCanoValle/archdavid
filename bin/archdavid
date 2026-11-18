@@ -30,7 +30,7 @@ Comandos:
   update              Actualiza al último tag. Destino.
   reload              Recarga Hyprland/Waybar/kitty/nvim
   autosync <accion>   enable|disable|status [--role origin|target]
-  theme <id>          Aplica un tema (theme-switcher)
+  theme <id>          Aplica un tema (rápido; --boot, --plymouth)
   pkg-add <pkg...>    Instala paquetes (manual)
   pkg-remove <pkg...> Elimina paquetes (manual)
   install [opciones]  Ejecuta install.sh
@@ -347,9 +347,9 @@ cmd_autosync() {
 
 cmd_theme() {
   local apply="$HOME/.config/theme-switcher/theme-apply.sh"
-  [[ -n "${1:-}" ]] || die "uso: archdavid theme <id>"
+  [[ $# -gt 0 ]] || die "uso: archdavid theme <id> [--boot] [--plymouth]"
   [[ -x "$apply" ]] || die "theme-switcher no instalado todavía (Fase 4)"
-  run "$apply" "$1"
+  run "$apply" "$@"
 }
 
 cmd_pkg_add() {
