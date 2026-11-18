@@ -5,7 +5,8 @@ ARCHDAVID_REPO_URL="${ARCHDAVID_REPO_URL:-https://github.com/DavidCanoValle/arch
 ARCHDAVID_INSTALL_DEFAULT="${ARCHDAVID_INSTALL_DEFAULT:-$HOME/.local/share/archdavid}"
 ARCHDAVID_DRY_RUN="${ARCHDAVID_DRY_RUN:-0}"
 ARCHDAVID_ROLE="${ARCHDAVID_ROLE:-target}"
-export ARCHDAVID_DRY_RUN ARCHDAVID_ROLE
+ARCHDAVID_PASSWORDLESS="${ARCHDAVID_PASSWORDLESS:-0}"
+export ARCHDAVID_DRY_RUN ARCHDAVID_ROLE ARCHDAVID_PASSWORDLESS
 
 say() { printf '[archdavid] %s\n' "$*"; }
 fail() {
@@ -22,6 +23,7 @@ Uso: install.sh [opciones]
 Opciones:
   --dry-run        Muestra los comandos sin ejecutarlos
   --role ROLE      origin | target (por defecto: target)
+  --passwordless   GRUB/SDDM sin contraseña vía sudoers (regla acotada)
   -h, --help       Esta ayuda
 
 Variables:
@@ -45,6 +47,10 @@ while (( $# > 0 )); do
     --role=*)
       ARCHDAVID_ROLE="${1#*=}"
       export ARCHDAVID_ROLE
+      ;;
+    --passwordless)
+      ARCHDAVID_PASSWORDLESS=1
+      export ARCHDAVID_PASSWORDLESS
       ;;
     -h | --help)
       usage

@@ -24,6 +24,21 @@ archdavid_install_theme_installer() {
   run_logged sudo install -Dm755 "$src" /usr/local/bin/theme-install
 }
 
+archdavid_install_passwordless() {
+  local sudoers="$ARCHDAVID_PATH/system/sudoers.d/archdavid-theme"
+  [[ -f "$sudoers" ]] || return 0
+  if [[ "${ARCHDAVID_PASSWORDLESS:-0}" != "1" ]]; then
+    return 0
+  fi
+  if archdavid_is_dry_run; then
+    log "DRY-RUN: instalar regla sudoers (GRUB/SDDM sin contraseña)"
+    return 0
+  fi
+  run_logged sudo visudo -cf "$sudoers"
+  run_logged sudo install -Dm440 "$sudoers" /etc/sudoers.d/archdavid-theme
+  ok "passwordless activado para GRUB/SDDM"
+}
+
 archdavid_login() {
   log "Login/boot"
   local boot
@@ -31,6 +46,7 @@ archdavid_login() {
   log "Bootloader detectado: $boot"
 
   archdavid_install_theme_installer
+  archdavid_install_passwordless
 
   if [[ -f /etc/locale.gen ]]; then
     run sudo locale-gen || warn "locale-gen falló"

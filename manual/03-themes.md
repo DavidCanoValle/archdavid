@@ -26,6 +26,29 @@ de SDDM se reutiliza de caché.
 Plymouth ya no se regenera en cada cambio de tema (era lo que hacía lento el
 proceso). Queda fijo hasta que ejecutes `--plymouth`.
 
+## Sin contraseña
+
+Por defecto, la actualización de GRUB/SDDM en segundo plano pide `sudo`. Para
+eliminarlo (una sola vez):
+
+```sh
+archdavid theme-passwordless enable
+```
+
+Esto instala `/usr/local/bin/theme-install` (root-owned) y la regla
+`/etc/sudoers.d/archdavid-theme`, que **solo** permite al grupo `wheel`:
+
+```
+/usr/local/bin/theme-install --no-plymouth *
+```
+
+- Los cambios normales de tema (GRUB + SDDM) ya no piden contraseña.
+- `--plymouth` sigue pidiendo contraseña (reconstruye initramfs).
+- Desactivar: `archdavid theme-passwordless disable`.
+- Seguridad: permite a `wheel` escribir el tema de GRUB/SDDM sin contraseña.
+  Si no quieres ese riesgo, deja el prompt o usa
+  `archdavid theme <id> --no-boot` (solo colores, sin tocar arranque).
+
 ## Fondos
 
 Los fondos **no** se incluyen en el repo. Los temas esperan encontrarlos en:

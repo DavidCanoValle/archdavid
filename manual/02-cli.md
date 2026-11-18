@@ -15,7 +15,8 @@ archdavid <comando>
 | `autosync enable --role origin\|target` | Instala y activa los timers. |
 | `autosync disable` | Desactiva los timers. |
 | `autosync status` | Muestra los timers. |
-| `theme <id>` | Aplica un tema vía theme-switcher. |
+| `theme <id>` | Aplica un tema vía theme-switcher (`--boot`, `--plymouth`). |
+| `theme-passwordless status\|enable\|disable` | GRUB/SDDM sin contraseña (regla sudoers). |
 | `pkg-add <pkg…>` | Instala paquetes (manual, `yay`). |
 | `pkg-remove <pkg…>` | Elimina paquetes (manual, `yay`). |
 | `install [opts]` | Ejecuta `install.sh`. |

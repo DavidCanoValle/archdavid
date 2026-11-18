@@ -31,6 +31,8 @@ Comandos:
   reload              Recarga Hyprland/Waybar/kitty/nvim
   autosync <accion>   enable|disable|status [--role origin|target]
   theme <id>          Aplica un tema (rápido; --boot, --plymouth)
+  theme-passwordless status|enable|disable
+                      GRUB/SDDM sin contraseña (regla sudoers)
   pkg-add <pkg...>    Instala paquetes (manual)
   pkg-remove <pkg...> Elimina paquetes (manual)
   install [opciones]  Ejecuta install.sh
@@ -85,6 +87,12 @@ cmd_doctor() {
     printf '  secretos:    %s (%s)\n' "$s" "$(stat -c '%A' "$s")"
   else
     printf '  secretos:    no creados\n'
+  fi
+
+  if [[ -x /usr/local/bin/theme-install ]] && [[ -f /etc/sudoers.d/archdavid-theme ]]; then
+    printf '  theme sudo:  sin contraseña (GRUB/SDDM)\n'
+  else
+    printf '  theme sudo:  con contraseña (activa: archdavid theme-passwordless enable)\n'
   fi
 
   local c
@@ -352,6 +360,34 @@ cmd_theme() {
   run "$apply" "$@"
 }
 
+cmd_theme_passwordless() {
+  local action="${1:-status}"
+  case "$action" in
+    status)
+      if [[ -x /usr/local/bin/theme-install ]] && [[ -f /etc/sudoers.d/archdavid-theme ]]; then
+        ok "passwordless: ACTIVADO (GRUB/SDDM; Plymouth sigue pidiendo sudo)"
+      else
+        warn "passwordless: desactivado"
+        log "Actívalo una vez con: archdavid theme-passwordless enable"
+      fi
+      ;;
+    enable)
+      local script="$ARCHDAVID_PATH/scripts/setup-passwordless-theme.sh"
+      [[ -f "$script" ]] || die "falta $script"
+      run sudo bash "$script"
+      ;;
+    disable)
+      if [[ -f /etc/sudoers.d/archdavid-theme ]]; then
+        run sudo rm -f /etc/sudoers.d/archdavid-theme
+      fi
+      ok "passwordless desactivado"
+      ;;
+    *)
+      die "uso: archdavid theme-passwordless <status|enable|disable>"
+      ;;
+  esac
+}
+
 cmd_pkg_add() {
   [[ $# -gt 0 ]] || die "uso: archdavid pkg-add <paquete...>"
   require_cmd yay
@@ -379,6 +415,7 @@ main() {
     reload) cmd_reload ;;
     autosync) cmd_autosync "$@" ;;
     theme) cmd_theme "$@" ;;
+    theme-passwordless) cmd_theme_passwordless "$@" ;;
     pkg-add) cmd_pkg_add "$@" ;;
     pkg-remove) cmd_pkg_remove "$@" ;;
     install) exec "$ARCHDAVID_PATH/install.sh" "$@" ;;

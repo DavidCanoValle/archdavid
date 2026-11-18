@@ -8,6 +8,8 @@ Todas las versiones siguen CalVer `YYYY.MM` (tag `vYYYY.MM`).
   (GRUB/SDDM) se actualiza en segundo plano; Plymouth pasa a **estático** y
   deja de reconstruir el initramfs en cada cambio; caché de assets por tema y
   contenido del fondo.
+- Temas: modo **sin contraseña** para GRUB/SDDM (`theme-passwordless enable`,
+  regla sudoers acotada al helper root-owned y `--no-plymouth`).
 - Estructura Omarchy-style: repo en `~/.local/share/archdavid`, configs por
   symlink (`--mode link`) o copia (`--mode copy`), CLI `archdavid`, migraciones.
 - `install.sh` por fases: preflight, packaging, config, login, post-install.

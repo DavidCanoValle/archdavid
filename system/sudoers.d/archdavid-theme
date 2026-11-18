@@ -1,0 +1,4 @@
+# archdavid: actualizar GRUB/SDDM sin contraseña.
+# Solo se permite el helper instalado por root y solo sin Plymouth
+# (Plymouth reconstruye el initramfs y queda bajo demanda con contraseña).
+%wheel ALL=(root) NOPASSWD: /usr/local/bin/theme-install --no-plymouth *

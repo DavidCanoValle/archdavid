@@ -24,6 +24,7 @@ git clone https://github.com/DavidCanoValle/archdavid.git ~/.local/share/archdav
 | `--dry-run` | Muestra los comandos sin ejecutarlos |
 | `--role origin` | Equipo origen (publica releases) |
 | `--role target` | Equipo destino (consume releases, por defecto) |
+| `--passwordless` | Instala la regla sudoers para actualizar GRUB/SDDM sin contraseña |
 | `--help` | Ayuda |
 
 ## Requisitos

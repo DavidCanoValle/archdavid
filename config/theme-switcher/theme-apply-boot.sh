@@ -28,6 +28,8 @@ flock -n 9 || exit 0
 
 S="$HOME/.cache/theme-switcher/staging/$ID"
 LOG=/tmp/theme-render-boot.log
+ROOT_HELPER="${ARCHDAVID_ROOT_HELPER:-/usr/local/bin/theme-install}"
+SUDOERS="${ARCHDAVID_SUDOERS_FILE:-/etc/sudoers.d/archdavid-theme}"
 
 notify -t 5000 "Tema de arranque" "Actualizando GRUB/SDDM..."
 if ! python3 "$DIR/render.py" system "$CONF" "$S" >>"$LOG" 2>&1; then
@@ -42,8 +44,8 @@ if (( PLYMOUTH )); then
   fi
 fi
 
-resolve_helper() {
-  local candidate real repo
+resolve_repo_helper() {
+  local real repo candidate
   if [[ -n "${ARCHDAVID_PATH:-}" && -f "$ARCHDAVID_PATH/system/usr-local-bin/theme-install" ]]; then
     printf '%s\n' "$ARCHDAVID_PATH/system/usr-local-bin/theme-install"
     return 0
@@ -62,15 +64,38 @@ resolve_helper() {
   fi
   candidate="$HOME/.local/share/archdavid/system/usr-local-bin/theme-install"
   [[ -f "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
-  candidate=/usr/local/bin/theme-install
-  [[ -f "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
   return 1
 }
 
-HELPER="$(resolve_helper)" || {
-  notify -i dialog-error "Tema de arranque" "No se encontró theme-install"
-  exit 1
-}
+REPO_HELPER="$(resolve_repo_helper || true)"
+
+if (( PLYMOUTH )); then
+  ARGS=(--plymouth "$S" "$ID")
+else
+  ARGS=(--no-plymouth "$S" "$ID")
+fi
+
+# 1) Intento sin contraseña: solo helper root-owned + regla sudoers.
+if [[ -x "$ROOT_HELPER" ]]; then
+  if out="$(sudo -n "$ROOT_HELPER" "${ARGS[@]}" 2>&1)"; then
+    MSG="GRUB y SDDM actualizados."
+    (( PLYMOUTH )) && MSG="GRUB, SDDM y Plymouth actualizados."
+    notify -t 7000 "Tema de arranque aplicado" "$MSG"
+    exit 0
+  fi
+  case "$out" in
+    *"password is required"*|*"no password was provided"*|*"a terminal is required"*) ;;
+    *)
+      notify -i dialog-error "Tema de arranque" "$out"
+      exit 1
+      ;;
+  esac
+fi
+
+# 2) Fallback con contraseña (rofi askpass).
+if [[ ! -f "$SUDOERS" ]]; then
+  notify -t 6000 "Tema de arranque" "Sin contraseña: archdavid theme-passwordless enable"
+fi
 
 MADE_ASK=0
 if [[ -n "${THEME_ASKPASS:-}" ]]; then
@@ -86,17 +111,23 @@ ASKPASS
 fi
 
 notify -t 5000 "Tema de arranque" "Se necesita tu contraseña para actualizar el sistema."
-FLAG=--no-plymouth
-(( PLYMOUTH )) && FLAG=--plymouth
 
-if SUDO_ASKPASS="$ASK" sudo -A bash "$HELPER" "$S" "$ID" "$FLAG"; then
-  [[ "$MADE_ASK" == 1 ]] && rm -f "$ASK"
-  DONE_MSG="GRUB y SDDM actualizados."
-  (( PLYMOUTH )) && DONE_MSG="GRUB, SDDM y Plymouth actualizados."
-  notify -t 7000 "Tema de arranque aplicado" "$DONE_MSG"
-  exit 0
+if [[ -x "$ROOT_HELPER" ]]; then
+  ok=0
+  SUDO_ASKPASS="$ASK" sudo -A "$ROOT_HELPER" "${ARGS[@]}" || ok=$?
+else
+  [[ -n "$REPO_HELPER" ]] || { notify -i dialog-error "Tema de arranque" "No se encontró theme-install"; exit 1; }
+  ok=0
+  SUDO_ASKPASS="$ASK" sudo -A bash "$REPO_HELPER" "${ARGS[@]}" || ok=$?
 fi
 
 [[ "$MADE_ASK" == 1 ]] && rm -f "$ASK"
-notify -i dialog-warning "Tema de arranque" "No se actualizó (cancelado o error)."
+
+if [[ "$ok" == 0 ]]; then
+  MSG="GRUB y SDDM actualizados."
+  (( PLYMOUTH )) && MSG="GRUB, SDDM y Plymouth actualizados."
+  notify -t 7000 "Tema de arranque aplicado" "$MSG"
+else
+  notify -i dialog-warning "Tema de arranque" "No se actualizó (cancelado o error)."
+fi
 exit 0
