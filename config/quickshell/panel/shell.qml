@@ -547,14 +547,17 @@ ShellRoot {
                     // Temas
                     Rectangle {
                         width: parent.width
-                        height: 30 + 3 * 44 + 2 * 8
+                        height: themeColumn.implicitHeight + 26
                         radius: 16
                         color: Qt.rgba(c.panel2.r, c.panel2.g, c.panel2.b, 0.55)
                         border.width: 1
                         border.color: Qt.rgba(c.border.r, c.border.g, c.border.b, 0.8)
 
                         Column {
-                            anchors.fill: parent
+                            id: themeColumn
+                            anchors.left: parent.left
+                            anchors.right: parent.right
+                            anchors.top: parent.top
                             anchors.margins: 13
                             spacing: 8
 

@@ -1,2 +1,2 @@
 -- Generado por theme-switcher
-return { scheme = "gruvbox", accent = "#d79921" }
+return { scheme = "tokyonight-night", accent = "#7aa2f7" }

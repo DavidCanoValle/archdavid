@@ -1,8 +1,8 @@
-@define-color bg #1d2021;
-@define-color panel #282828;
-@define-color panel2 #32302f;
-@define-color border #3c3836;
-@define-color accent #d79921;
-@define-color text #ebdbb2;
-@define-color dim #928374;
-@define-color warning #fb4934;
+@define-color bg #16161e;
+@define-color panel #1a1b26;
+@define-color panel2 #1f2335;
+@define-color border #2f334d;
+@define-color accent #7aa2f7;
+@define-color text #c0caf5;
+@define-color dim #565f89;
+@define-color warning #f7768e;

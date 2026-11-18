@@ -1,11 +1,11 @@
 * {
-    background:     #1d2021FF;
-    background-alt: #282828FF;
-    foreground:     #ebdbb2FF;
-    selected:       #d79921FF;
-    active:         #32302fFF;
-    urgent:         #fb4934FF;
-    border:         #3c3836FF;
-    dim:            #928374FF;
-    accent:         #d79921FF;
+    background:     #16161eFF;
+    background-alt: #1a1b26FF;
+    foreground:     #c0caf5FF;
+    selected:       #7aa2f7FF;
+    active:         #1f2335FF;
+    urgent:         #f7768eFF;
+    border:         #2f334dFF;
+    dim:            #565f89FF;
+    accent:         #7aa2f7FF;
 }

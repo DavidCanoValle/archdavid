@@ -61,45 +61,9 @@ fi
 printf '%s\n' "$ID" > "$DIR/current"
 printf '%s\n' "$NAME" > "$DIR/current-name"
 
-python3 - "$DIR" "$ID" > "$DIR/panel.json.tmp" <<'PYJSON'
-import json, sys, os
-base, current = sys.argv[1], sys.argv[2]
-keys = ["ID","NAME","BG","PANEL","PANEL2","BORDER","ACCENT","TEXT","DIM","WARN","WALLPAPER"]
-def load(path):
-    d = {}
-    for line in open(path, encoding="utf-8"):
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        d[k] = os.path.expanduser(os.path.expandvars(v.strip().strip('"')))
-    return d
-themes = []
-cur = None
-for name in sorted(os.listdir(os.path.join(base, "themes"))):
-    if not name.endswith(".conf"):
-        continue
-    d = load(os.path.join(base, "themes", name))
-    item = {
-        "id": d.get("ID", name[:-5]),
-        "name": d.get("NAME", name[:-5]),
-        "bg": d.get("BG", "#0b1220"),
-        "panel": d.get("PANEL", "#111a2e"),
-        "panel2": d.get("PANEL2", "#16223a"),
-        "border": d.get("BORDER", "#1b2a44"),
-        "accent": d.get("ACCENT", "#61afef"),
-        "text": d.get("TEXT", "#e6e8ee"),
-        "dim": d.get("DIM", "#5b6b8c"),
-        "warn": d.get("WARN", "#e06c75"),
-    }
-    themes.append(item)
-    if item["id"] == current:
-        cur = item
-if cur is None:
-    cur = themes[0]
-print(json.dumps({"current": cur, "themes": themes}, ensure_ascii=False))
-PYJSON
-mv "$DIR/panel.json.tmp" "$DIR/panel.json"
+python3 "$DIR/panel-gen.py" "$DIR" "$ID" > "$DIR/panel.json.tmp"
+cat "$DIR/panel.json.tmp" > "$DIR/panel.json"
+rm -f "$DIR/panel.json.tmp"
 
 notify -t 6000 -i preferences-desktop-theme "Tema aplicado: $NAME" "Colores de usuario actualizados."
 
