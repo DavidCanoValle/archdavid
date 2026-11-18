@@ -26,7 +26,7 @@ if [[ ! -f "$WALLPAPER" ]]; then
     exit 0
 fi
 
-notify -t 8000 -i preferences-desktop-theme "Aplicando tema: $NAME" "Generando fondos y estilos..."
+notify -t 8000 -i preferences-desktop-theme "Aplicando tema: $NAME" "Generando estilos..."
 S="$HOME/.cache/theme-switcher/staging/$ID"
 rm -rf "$S"
 mkdir -p "$S"
@@ -57,30 +57,7 @@ if command -v hyprctl >/dev/null 2>&1; then
     hyprctl reload >/dev/null 2>&1 || true
 fi
 
-MADE_ASK=0
-if [[ -n "${THEME_ASKPASS:-}" ]]; then
-    ASK="$THEME_ASKPASS"
-else
-    ASK="$HOME/.cache/theme-switcher/askpass.sh"
-    cat > "$ASK" <<'ASKPASS'
-#!/bin/sh
-exec rofi -dmenu -password -p "Contrasena sudo" -theme "$HOME/.config/rofi/menu.rasi"
-ASKPASS
-    chmod 700 "$ASK"
-    MADE_ASK=1
-fi
-notify -t 6000 -i system-software-update "Instalando en sistema" "GRUB, SDDM y Plymouth (reconstruyendo initramfs, ~1 min)..."
-THEME_INSTALL=/usr/local/bin/theme-install
-if [[ ! -x "$THEME_INSTALL" ]]; then
-    THEME_INSTALL=/usr/local/bin/david-theme-install
-fi
-if ! SUDO_ASKPASS="$ASK" sudo -A "$THEME_INSTALL" "$S" "$ID"; then
-    [[ "$MADE_ASK" == 1 ]] && rm -f "$ASK"
-    notify -i dialog-error "No se aplico el tema" "Cancelado o error en la instalacion del sistema."
-    exit 1
-fi
-[[ "$MADE_ASK" == 1 ]] && rm -f "$ASK"
-
+# Estado del tema: se escribe ANTES del paso con sudo para no perderlo si se cancela.
 printf '%s\n' "$ID" > "$DIR/current"
 printf '%s\n' "$NAME" > "$DIR/current-name"
 
@@ -95,7 +72,7 @@ def load(path):
         if not line or line.startswith("#") or "=" not in line:
             continue
         k, v = line.split("=", 1)
-        d[k] = v.strip().strip('"')
+        d[k] = os.path.expanduser(os.path.expandvars(v.strip().strip('"')))
     return d
 themes = []
 cur = None
@@ -123,4 +100,32 @@ if cur is None:
 print(json.dumps({"current": cur, "themes": themes}, ensure_ascii=False))
 PYJSON
 mv "$DIR/panel.json.tmp" "$DIR/panel.json"
-notify -t 8000 -i preferences-desktop-theme "Tema aplicado: $NAME" "GRUB, SDDM y Plymouth actualizados. El arranque se vera al reiniciar."
+
+notify -t 6000 -i preferences-desktop-theme "Tema aplicado: $NAME" "Colores de usuario actualizados."
+
+# Parte de sistema (GRUB/SDDM/Plymouth). Si se cancela, el tema de usuario ya está aplicado.
+MADE_ASK=0
+if [[ -n "${THEME_ASKPASS:-}" ]]; then
+    ASK="$THEME_ASKPASS"
+else
+    ASK="$HOME/.cache/theme-switcher/askpass.sh"
+    cat > "$ASK" <<'ASKPASS'
+#!/bin/sh
+exec rofi -dmenu -password -p "Contrasena sudo" -theme "$HOME/.config/rofi/menu.rasi"
+ASKPASS
+    chmod 700 "$ASK"
+    MADE_ASK=1
+fi
+
+notify -t 6000 -i system-software-update "Instalando en sistema" "GRUB, SDDM y Plymouth (reconstruyendo initramfs, ~1 min)..."
+THEME_INSTALL=/usr/local/bin/theme-install
+if [[ ! -x "$THEME_INSTALL" ]]; then
+    THEME_INSTALL=/usr/local/bin/david-theme-install
+fi
+if ! SUDO_ASKPASS="$ASK" sudo -A "$THEME_INSTALL" "$S" "$ID"; then
+    [[ "$MADE_ASK" == 1 ]] && rm -f "$ASK"
+    notify -i dialog-warning "Tema aplicado (usuario)" "No se actualizó GRUB/SDDM/Plymouth (cancelado o error)."
+    exit 0
+fi
+[[ "$MADE_ASK" == 1 ]] && rm -f "$ASK"
+notify -t 8000 -i preferences-desktop-theme "Sistema actualizado" "GRUB, SDDM y Plymouth actualizados. El arranque se verá al reiniciar."

@@ -27,7 +27,8 @@ def load_conf(path):
             if not line or line.startswith("#") or "=" not in line:
                 continue
             key, val = line.split("=", 1)
-            conf[key.strip()] = val.strip().strip('"')
+            raw = val.strip().strip('"')
+            conf[key.strip()] = os.path.expanduser(os.path.expandvars(raw))
     return conf
 
 

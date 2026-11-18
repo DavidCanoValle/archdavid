@@ -12,9 +12,6 @@ config/gh/
 *.tmp
 *.swp
 *~
-config/theme-switcher/current
-config/theme-switcher/current-name
-config/theme-switcher/panel.json
 **/node_modules/
 **/.cache/
 **/.local/
@@ -26,3 +23,7 @@ config/theme-switcher/panel.json
 wallpapers/
 .wallpapers/
 *.AppImage
+
+# Python
+__pycache__/
+*.pyc
